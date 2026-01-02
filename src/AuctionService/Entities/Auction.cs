@@ -26,7 +26,7 @@ namespace AuctionService.Entities
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         [Column("Updated_At")]
-        public DateTime UpdatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
         [Column("Auction_End")]
         public DateTime AuctionEnd { get; set; }
