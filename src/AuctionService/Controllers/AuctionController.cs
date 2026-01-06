@@ -5,6 +5,7 @@ using AutoMapper;
 using AutoMapper.QueryableExtensions;
 using Contracts;
 using MassTransit;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -33,13 +34,14 @@ namespace AuctionService.Controllers
             return mapper.Map<AuctionDto>(auction);
         }
 
+        [Authorize]
         [HttpPost]
         public async Task<ActionResult<AuctionDto>> CreateAuction(CreateAuctionDto createAuctionDto)
         {
             var auction = mapper.Map<Auction>(createAuctionDto);
 
-            //Add current user as seller - to be replaced with auth later
-            auction.Seller = "Test";
+            var seller = User.Identity?.Name ?? throw new UnauthorizedAccessException("User is not authenticated.");
+            auction.Seller = seller;
 
             conext.Auctions.Add(auction);
 
@@ -52,13 +54,15 @@ namespace AuctionService.Controllers
             return CreatedAtAction(nameof(GetAuctionById), new {auction.Id}, newAuction);
         }
 
+        [Authorize]
         [HttpPut("{id}")]
         public async Task<ActionResult> UpdateAuction(Guid id, UpdateAuctionDto updateAuctionDto)
         {
             var auction = await conext.Auctions.Include(a => a.Item).FirstOrDefaultAsync(a => a.Id == id);
             if(auction == null) return BadRequest("Auction not found");
 
-            // Check seller is current user - to be replaced with auth later
+            if(auction.Seller != User.Identity?.Name) return Forbid();
+
             auction.Item.Make = updateAuctionDto.Make ?? auction.Item.Make;
             auction.Item.Model = updateAuctionDto.Model ?? auction.Item.Model;
             auction.Item.Year = updateAuctionDto.Year ?? auction.Item.Year;
@@ -74,6 +78,7 @@ namespace AuctionService.Controllers
             return Ok();
         }
 
+        [Authorize]
         [HttpDelete("{id}")]
         public async Task<ActionResult> DeleteAuction(Guid id)
         {
@@ -81,6 +86,8 @@ namespace AuctionService.Controllers
             if(auction == null) return NotFound("Auction not found");
 
             // Check seller is current user - to be replaced with auth later
+            if(auction.Seller != User.Identity?.Name) return Forbid();
+            
             conext.Auctions.Remove(auction);
 
             await publishEndpoint.Publish<AuctionDeleted>(new {Id = auction.Id.ToString()});
