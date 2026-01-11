@@ -9,11 +9,11 @@ namespace AuctionService.Data
         {
             using var scope = app.Services.CreateScope();
 
-            var context = scope.ServiceProvider.GetRequiredService<DataConext>();
+            var context = scope.ServiceProvider.GetRequiredService<DataContext>();
             SeedData(context);
         }
 
-         private static void SeedData(DataConext context)
+         private static void SeedData(DataContext context)
         {
             context.Database.Migrate();
 

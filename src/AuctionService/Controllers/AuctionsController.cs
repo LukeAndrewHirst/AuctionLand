@@ -2,36 +2,30 @@ using AuctionService.Data;
 using AuctionService.DTOs;
 using AuctionService.Entities;
 using AutoMapper;
-using AutoMapper.QueryableExtensions;
 using Contracts;
 using MassTransit;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace AuctionService.Controllers
 {
     [ApiController]
     [Route("api/auctions")]
-    public class Auctioncontroller(DataConext conext, IMapper mapper, IPublishEndpoint publishEndpoint) : ControllerBase
+    public class AuctionsController(IAuctionRepository repository,IMapper mapper, IPublishEndpoint publishEndpoint) : ControllerBase
     {
         [HttpGet]
         public async Task<ActionResult<List<AuctionDto>>> GetAllAuctions(string? date)
         {
-            var query = conext.Auctions.OrderBy(a => a.Item.Make).AsQueryable();
-
-            if(!string.IsNullOrEmpty(date)) query = query.Where(a => a.CreatedAt.CompareTo(DateTime.Parse(date).ToUniversalTime()) >0);
-
-            return await query.ProjectTo<AuctionDto>(mapper.ConfigurationProvider).ToListAsync();
+            return await repository.GetAuctionsAsync(date);
         }
 
         [HttpGet("{id}")]
         public async Task<ActionResult<AuctionDto>> GetAuctionById(Guid id)
         {
-            var auction = await conext.Auctions.Include(a => a.Item).FirstOrDefaultAsync(a => a.Id == id);
-            if(auction == null) return BadRequest("Auction not found");
+            var auction = await repository.GetAuctionByIdAsync(id);
+            if(auction == null) return NotFound();
 
-            return mapper.Map<AuctionDto>(auction);
+            return auction;
         }
 
         [Authorize]
@@ -43,12 +37,12 @@ namespace AuctionService.Controllers
             var seller = User.Identity?.Name ?? throw new UnauthorizedAccessException("User is not authenticated.");
             auction.Seller = seller;
 
-            conext.Auctions.Add(auction);
+            repository.AddAuction(auction);
 
             var newAuction = mapper.Map<AuctionDto>(auction);
             await publishEndpoint.Publish(mapper.Map<AuctionCreated>(newAuction));
 
-            var result = await conext.SaveChangesAsync() > 0;
+            var result = await repository.SaveChangesAsync();
             if(!result) return BadRequest("Failed to create auction");
 
             return CreatedAtAction(nameof(GetAuctionById), new {auction.Id}, newAuction);
@@ -58,8 +52,8 @@ namespace AuctionService.Controllers
         [HttpPut("{id}")]
         public async Task<ActionResult> UpdateAuction(Guid id, UpdateAuctionDto updateAuctionDto)
         {
-            var auction = await conext.Auctions.Include(a => a.Item).FirstOrDefaultAsync(a => a.Id == id);
-            if(auction == null) return BadRequest("Auction not found");
+            var auction = await repository.GetAuctionByEntityById(id);
+            if(auction == null) return NotFound();
 
             if(auction.Seller != User.Identity?.Name) return Forbid();
 
@@ -72,7 +66,7 @@ namespace AuctionService.Controllers
 
             await publishEndpoint.Publish(mapper.Map<AuctionUpdated>(auction));
 
-            var result = await conext.SaveChangesAsync() > 0;
+            var result = await repository.SaveChangesAsync();
             if(!result) return BadRequest("Failed to update auction");
 
             return Ok();
@@ -82,17 +76,17 @@ namespace AuctionService.Controllers
         [HttpDelete("{id}")]
         public async Task<ActionResult> DeleteAuction(Guid id)
         {
-            var auction = await conext.Auctions.FindAsync(id);
-            if(auction == null) return NotFound("Auction not found");
+            var auction = await repository.GetAuctionByEntityById(id);
+            if(auction == null) return NotFound();
 
             // Check seller is current user - to be replaced with auth later
             if(auction.Seller != User.Identity?.Name) return Forbid();
             
-            conext.Auctions.Remove(auction);
+            repository.RemoveAuction(auction);
 
             await publishEndpoint.Publish<AuctionDeleted>(new {Id = auction.Id.ToString()});
 
-            var result = await conext.SaveChangesAsync() > 0;
+            var result = await repository.SaveChangesAsync();
             if(!result) return BadRequest("Failed to delete auction");
 
             return Ok();

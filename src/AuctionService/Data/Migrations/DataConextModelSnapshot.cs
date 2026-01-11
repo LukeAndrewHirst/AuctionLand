@@ -10,7 +10,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 namespace AuctionService.Data.Migrations
 {
-    [DbContext(typeof(DataConext))]
+    [DbContext(typeof(DataContext))]
     partial class DataConextModelSnapshot : ModelSnapshot
     {
         protected override void BuildModel(ModelBuilder modelBuilder)

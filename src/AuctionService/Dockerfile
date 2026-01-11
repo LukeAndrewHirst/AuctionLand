@@ -4,6 +4,7 @@ WORKDIR /app
 COPY AuctionLane.slnx /
 COPY src/AuctionService/AuctionService.csproj ./src/AuctionService/
 COPY src/Contracts/Contracts.csproj ./src/Contracts/
+COPY tests/AuctionService.Tests/AuctionService.Tests.csproj ./tests/AuctionService.Tests/
 
 RUN dotnet restore src/AuctionService/AuctionService.csproj
 
