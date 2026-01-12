@@ -50,7 +50,6 @@ namespace AuctionService.IntegrationTests
 
            var response = await _client.PostAsJsonAsync($"/api/auctions/", auction);
 
-           response.EnsureSuccessStatusCode();
            Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         }
 
